@@ -39,33 +39,33 @@ def parse_args():
 
     parser.add_argument("--groups-fl",
                         type=str,
-                        required=True)
+                        required=False)
 
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
 
-    groups = read_groups(args.groups_fl)
+    #groups = read_groups(args.groups_fl)
 
     matrices = []
     labels = []
     for flname in args.feature_matrices:
         matrix = load_matrix(flname)
-        for sample_name, group_name in groups.items():
-            if sample_name in flname:
-                matrices.append(matrix)
-                labels.append(group_name)
+        #for sample_name, group_name in groups.items():
+            #if sample_name in flname:
+        matrices.append(matrix)
+               # labels.append(group_name)
 
     feature_matrix = sp.vstack(matrices).toarray()
 
     pca = PCA(n_components = 6, whiten=True)
     proj = pca.fit_transform(feature_matrix)
 
-    labels = np.array(labels)
-    for label in set(labels):
-        mask = labels == label
-        plt.scatter(proj[mask, 0], proj[mask, 1], label=label)
+    #labels = np.array(labels)
+    #for label in set(labels):
+       # mask = labels == label
+    plt.scatter(proj[mask, 0], proj[mask, 1]) # label = label
     plt.legend()
     plt.xlabel("Component 1", fontsize=18)
     plt.ylabel("Component 2", fontsize=18)
