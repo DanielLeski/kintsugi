@@ -91,7 +91,7 @@ rule create_pass_list:
     threads:
         24
     shell:
-        "sort --batch-size {params.batch_size} -S 110G -T data/doc_freq/ -m {input.sorted_kmers} | uniq -c | scripts/create_bloomfilter.py --min-df {params.min_df} --output-bf {output.pass_list}"
+        "sort --batch-size {params.batch_size} -S 56G -T data/doc_freq/ -m {input.sorted_kmers} | uniq -c | scripts/create_bloomfilter.py --min-df {params.min_df} --output-bf {output.pass_list}"
 
 # feature extraction
 rule create_random_projection:
@@ -125,14 +125,12 @@ rule pca:
     input:
         feature_matrices=expand("data/feature_extraction/{sample}.features",
                                 sample=config["samples"])
-    params:
-        groups_fl=config["groups_fl"]
     output:
         plot="data/pca/pca_1_2.png"
     threads:
         4
     shell:
-        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --plot-fl {output.plot}"
         
 # top-level rules
 rule setup_inputs:
