@@ -10,7 +10,6 @@ rule link_bam:
     shell:
         "ln -s {input.src} {output}"
 
-
 # filter bams
 rule index_bam:
     input:
@@ -28,26 +27,15 @@ rule filter_bam:
         bai="data/input_alignments/{sample}.bai"
     params:
         min_mapping_qual=config["min_mapping_quality"],
-        chrom=config["chrom"]
-    output:
-        "data/filtered_alignments/{sample}.filtered.bam"
-    threads:
-        4
-    shell:
-        "samtools view -b -@{threads} -F 0x0200 -F 0x0100 -F 0x004 -q {params.min_mapping_qual} {input.bam} {params.chrom} > {output}"
-
-# k-mer counting with jellyfish
-rule extract_bam_reads:
-    input:
-        bam="data/filtered_alignments/{sample}.filtered.bam"
-    params:
+        chrom=config["chrom"],
         kmer_size=config["kmer_size"]
     output:
         jf="data/kmer_counts/{sample}.jf"
     threads:
-        6
+        4
     shell:
-        "samtools fasta {input.bam} | jellyfish count -t {threads} -m {params.kmer_size} -s 1000M -C -o {output.jf} /dev/fd/0"
+        "samtools view -b -@{threads} -F 0x0200 -F 0x0100 -F 0x004 -q {params.min_mapping_qual} {input.bam} {params.chrom} | samtools fasta - |  jellyfish count -t {threads} -m {params.kmer_size} -s 1000M -C -o {output.jf} /dev/fd/0"
+
 
 # jellyfish dump is single threaded
 # but specify number of threads to avoid
@@ -60,78 +48,169 @@ rule dump_kmers:
     threads:
         6
     shell:
-        "jellyfish dump -c -o {output.counts} {input.jf}"
-
-# find document frequencies
-# note that pre-allocating a buffer (-S) makes
-# a massive difference in run time
-rule sort_kmers:
-    input:
-        counts="data/kmer_counts/{sample}.counts"
-    output:
-        sorted_kmers="data/doc_freq/{sample}.sorted.counts"
-    threads:
-        6
-    shell:
-        "cut -f 1 -d \" \" {input.counts} | sort -S 16G --parallel {threads} > {output.sorted_kmers}"
-
-# merge operation doesn't actually use
-# multiple threads but using all threads
-# lets us prevent other processes from running
-# so that we can use all memory as buffer
-rule create_pass_list:
-    input:
-        sorted_kmers=expand("data/doc_freq/{sample}.sorted.counts",
-                            sample=config["samples"])
-    params:
-        batch_size=config["merge_batch_size"],
-        min_df=config["min_doc_freq"]
-    output:
-        pass_list="data/doc_freq/kmer_passlist.bf"
-    threads:
-        24
-    shell:
-        "sort --batch-size {params.batch_size} -S 56G -T data/doc_freq/ -m {input.sorted_kmers} | uniq -c | scripts/create_bloomfilter.py --min-df {params.min_df} --output-bf {output.pass_list}"
-
-# feature extraction
-rule create_random_projection:
-    params:
-        n_features=config["n_features"],
-        n_rand_dim=config["n_rand_dim"],
-        n_samples=len(config["samples"])
-    output:
-        rand_proj="data/feature_extraction/rand_proj.joblib"
-    threads:
-        4
-    shell:
-        "scripts/create_rand_proj.py --n-features {params.n_features} --n-components {params.n_rand_dim} --n-samples {params.n_samples} --output-fl {output.rand_proj}"
+        "jellyfish dump -c -L 2 {input.jf} > {output.counts}"
 
 rule extract_features:
     input:
         kmer_counts="data/kmer_counts/{sample}.counts",
-        rand_proj="data/feature_extraction/rand_proj.joblib",
-        pass_list="data/doc_freq/kmer_passlist.bf"
     params:
         n_features=config["n_features"],
         use_binary=config["use_binary_features"]
     output:
         feature_matrix="data/feature_extraction/{sample}.features"
     threads:
-        3
+        2
     shell:
-        "scripts/feature_extractor.py --rand-proj-fl {input.rand_proj} --passlist-bf {input.pass_list} --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} {params.use_binary} --feature-matrix {output.feature_matrix}"
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} {params.use_binary} --feature-matrix {output.feature_matrix}"
+
+rule log1p_feature:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+         n_features=config["n_features"]
+    output:	
+         feature_matrix="data/log1p_features/{sample}.features"
+    threads:
+         4
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --counts --log1p"	
+
+rule counts_feature:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+        n_features=config["n_features"]
+    output:
+        feature_matrix="data/count_features/{sample}.features"
+    threads:
+        2
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --counts"
+
+rule binarizer_feature:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+        n_features=config["n_features"]
+    output:
+        feature_matrix="data/binarizer_features/{sample}.features"
+    threads:
+        2
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --counts --binarizer"
+
+rule log1p_no_count:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+        n_features=config["n_features"]
+    output:
+        feature_matrix="data/log1p_no_counts/{sample}.features"
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --binary --log1p"
+
+
+rule binarizer_no_count:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+        n_features=config["n_features"]
+    output:
+        feature_matrix="data/binarizer_no_counts/{sample}.features"
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --binary  --binarizer"
+
+
+rule binary_features:
+    input:
+        kmer_counts="data/kmer_counts/{sample}.counts",
+    params:
+        n_features=config["n_features"]
+    output:
+        feature_matrix="data/binary_features/{sample}.features"
+    shell:
+        "scripts/feature_extractor.py --kmer-freq-fl {input.kmer_counts} --n-features {params.n_features} --feature-matrix {output.feature_matrix} --binary"
+
+#This is pca rules for binary/no binary
+rule pca_binary:
+    input:
+        feature_matrices=expand("data/binary_features/{sample}.features",
+                               sample=config["samples"])
+    params:
+        groups_fl=config["groups_fl"]
+    output:
+        plot="data/pca/pca_binary.png"
+    threads:
+        2
+    shell:
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
 
 rule pca:
     input:
         feature_matrices=expand("data/feature_extraction/{sample}.features",
                                 sample=config["samples"])
+    params:
+        groups_fl=config["groups_fl"]
     output:
         plot="data/pca/pca_1_2.png"
     threads:
-        4
+        2
     shell:
-        "scripts/pca.py --feature-matrices {input.feature_matrices} --plot-fl {output.plot}"
-        
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+
+rule pca_log1p:
+    input:
+       feature_matrices=expand("data/log1p_features/{sample}.features", 
+			                        	sample=config["samples"])
+    params:
+       groups_fl=config["groups_fl"]
+    output:
+       plot="data/pca/pca_log1p.png"
+    threads:
+       2
+    shell:
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+
+rule pca_binarizer:
+    input:
+        feature_matrices=expand("data/binarizer_features/{sample}.features",
+                                 sample=config["samples"])
+    params:
+        groups_fl=config["groups_fl"]
+    output:
+        plot="data/pca/pca_binarizer.png"
+    threads:
+        2
+    shell:
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+
+rule pca_log1p_no_count:
+    input:
+       feature_matrices=expand("data/log1p_no_counts/{sample}.features", 
+				                        sample=config["samples"])
+    params:
+       groups_fl=config["groups_fl"]
+    output:
+       plot="data/pca/pca_log1p_no_count.png"
+    threads:
+       2
+    shell:
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+
+rule pca_binarizer_no_count:
+    input:
+        feature_matrices=expand("data/binarizer_no_counts/{sample}.features",
+                                 sample=config["samples"])
+    params:
+        groups_fl=config["groups_fl"]
+    output:
+        plot="data/pca/pca_binarizer_no_counts.png"
+    threads:
+        2
+    shell:
+        "scripts/pca.py --feature-matrices {input.feature_matrices} --groups-fl {params.groups_fl} --plot-fl {output.plot}"
+
+
 # top-level rules
 rule setup_inputs:
     input:
