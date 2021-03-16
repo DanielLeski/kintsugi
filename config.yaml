@@ -1,16 +1,35 @@
 # inputs
 input_bam_dir: /scratch2/dleskiewicz/1000-anopheles/bams
 
-# we need to trim reads differently depending on sequencing tech
-samples: [AB0085_C, AB0133_C, AB0151_C, AB0166_C, AB0177_C, AB0205_C, AB0235_C, AB0256_C, AB0273_C, 
-          AB0103_C, AB0134_C, AB0153_C, AB0169_C, AB0178_C, AB0206_C, AB0236_C, AB0260_C, AB0274_C,
-          AB0104_C, AB0135_C, AB0155_C, AB0170_C, AB0179_C, AB0207_C, AB0238_C, AB0261_C, AB0277_C,
-          AB0117_C, AB0136_C, AB0157_C, AB0171_C, AB0197_C, AB0208_C, AB0239_C, AB0264_C, AB0278_C, 
-          AB0119_C, AB0143_C, AB0158_C, AB0172_C, AB0198_C, AB0211_C, AB0241_C, AB0265_C, AB0280_C,
-          AB0126_C, AB0145_C, AB0159_C, AB0173_C, AB0199_C, AB0217_C, AB0244_C, AB0268_C, AB0281_C,
-          AB0127_C, AB0146_C, AB0160_C, AB0160_C, AB0174_C, AB0201_C, AB0228_C, AB0251_C, AB0270_C, 
-          AB0283_C, AB0128_C, AB0147_C, AB0161_C, AB0175_C, AB0202_C, AB0231_C, AB0252_C, AB0271_C, 
-          AB0284_C, AB0129_C, AB0148_C, AB0164_C, AB0176_C, AB0203_C, AB0233_C, AB0253_C, AB0272_C]
+# this is the datas that was being used previously
+#
+#samples: [AB0085_C, AB0103_C, AB0117_C, AB0119_C,
+#         AB0126_C, AB0127_C, AB0128_C, AB0129_C,
+#         AB0133_C, AB0135_C, AB0136_C,
+#         AB0143_C, AB0145_C, AB0146_C, AB0147_C,
+#         AB0153_C, AB0155_C, AB0157_C, AB0158_C, AB0159_C,
+#         AB0160_C, AB0161_C, AB0164_C, AB0166_C, AB0169_C,
+#         AB0170_C, AB0171_C, AB0172_C, AB0174_C, AB0175_C, AB0177_C, AB0178_C, AB0179_C,
+#        AB0198_C, AB0199_C,
+#         AB0201_C, AB0202_C, AB0203_C, AB0205_C, AB0206_C, AB0207_C, AB0208_C,
+#         AB0217_C,
+#         AB0228_C,
+#         AB0231_C, AB0233_C, AB0235_C, AB0236_C, AB0238_C, AB0239_C,
+#         AB0241_C, AB0244_C,
+#         AB0251_C, AB0252_C, AB0253_C, AB0256_C,
+#         AB0260_C, AB0261_C, AB0264_C, AB0265_C,
+#         AB0270_C, AB0271_C, AB0272_C, AB0273_C, AB0274_C, AB0277_C, AB0278_C,
+#         AB0280_C, AB0283_C, AB0284_C]
+
+samples: [AB0085_C,  AB0133_C,  AB0151_C,  AB0166_C,  AB0177_C,  AB0205_C,  AB0235_C,  AB0256_C,  AB0273_C,
+          AB0103_C,  AB0134_C,  AB0153_C,  AB0169_C,  AB0178_C,  AB0206_C,  AB0236_C,  AB0260_C,  AB0274_C,
+          AB0104_C,  AB0135_C,  AB0155_C,  AB0170_C,  AB0179_C,  AB0207_C,  AB0238_C,  AB0261_C,  AB0277_C,
+          AB0117_C,  AB0136_C,  AB0157_C,  AB0171_C,  AB0197_C,  AB0208_C,  AB0239_C,  AB0264_C,  AB0278_C,
+          AB0119_C,  AB0143_C,  AB0158_C,  AB0172_C,  AB0198_C,  AB0211_C,  AB0241_C,  AB0265_C,  AB0280_C,
+          AB0126_C,  AB0145_C, AB0159_C,  AB0173_C,  AB0199_C,  AB0217_C,  AB0244_C,  AB0268_C,  AB0281_C,
+          AB0127_C,  AB0146_C,  AB0160_C,  AB0174_C,  AB0201_C, AB0228_C,  AB0251_C,  AB0270_C,  AB0283_C,
+          AB0128_C,  AB0147_C,  AB0161_C,  AB0175_C,  AB0202_C,  AB0231_C,  AB0252_C,  AB0271_C,  AB0284_C,
+          AB0129_C,  AB0148_C,  AB0164_C, AB0176_C,  AB0203_C,  AB0233_C,  AB0253_C,  AB0272_C]
 
 # alignment filtering settings
 chrom: "2L"
@@ -24,10 +43,10 @@ merge_batch_size: 512
 min_doc_freq: 2
 
 # feature extraction
-n_features: 30
+n_features: 16
 n_rand_dim: 3000
 use_binary_features: "--binary"
-#Change back when the file is in directory
-#groups_fl: "bfm_bfs_2la_karyotypes.txt"
+
+groups_fl: "ag1000g_2La_bfaso.pops"
 
 
