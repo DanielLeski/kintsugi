@@ -7,6 +7,9 @@ from joblib import load
 from pybloom import BloomFilter
 import scipy.sparse as sp
 from sklearn.feature_extraction import FeatureHasher
+from sklearn.preprocessing import Binarizer
+import numpy as np
+
 
 def load_rand_proj(flname):
     return load(flname)
@@ -42,23 +45,26 @@ def progress(kmers):
             next_output *= 2
         yield processed, kmer, count
 
-def get_counts(kmers):
+def get_counts(kmers, kmer_count):
     for processed, kmer, count in kmers:
-        yield kmer, count
+        if kmer_count:
+            yield kmer, count
+        else: 
+            yield kmer, 1
         
 def hash_features(kmers, n_features):
     extractor = FeatureHasher(n_features = n_features,
                               input_type = "pair",
                               non_negative=True)
-    features = extractor.transform([kmers])
-
+    features = extractor.transform([kmers]).toarray()
     return features
         
 def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--rand-proj-fl",
-                        type=str)
+                        type=str,
+                        required=False)
 
     parser.add_argument("--feature-matrix",
                         type=str,
@@ -81,6 +87,19 @@ def parse_args():
                         default=20,
                         help="Number of hashed features in base 2")
 
+    parser.add_argument("--counts",
+                        action="store_true",
+                        help="using counts")
+
+    parser.add_argument("--log1p",
+                        action= "store_true",
+                        help="log1p features")
+
+    parser.add_argument("--binarizer",
+                        action = "store_true",
+                        help="Binarizer features")
+
+
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -93,23 +112,33 @@ if __name__ == "__main__":
         print "Reading passlist bloomfilter"
         passlist = load_bloomfilter(args.passlist_bf)
         kmers = filter_passlist(kmers, passlist)
-
-    if args.binary:
-        print "Using binary features"
-        kmers = to_binary(kmers)
-
-    #kmers = progress(kmers)
-    kmers = get_counts(kmers)
+   
+    kmers = progress(kmers)
+    kmers = get_counts(kmers, args.counts)
 
     n_features = 2 ** args.n_features
     features = hash_features(kmers, n_features=n_features)
+    
+    if args.binarizer:
+        features = Binarizer().fit_transform(features)
+
+    if args.log1p:
+        features = np.log1p(features)
+  
+    if args.binary:
+        print "Using binary features"
+        kmers = to_binary(kmers)
+    
+    #add flags using arg parser
+    #features = np.log1p(features)
+    #features = Binarizer().fit_transform(features)
 
     print "Done with feature extraction"
     
-    if args.rand_proj_fl:
-        print "Loading random projection"
-        srp = load_rand_proj(args.rand_proj_fl)
-        features = srp.transform(features)
+   # if args.rand_proj_fl:
+    #    print "Loading random projection"
+     #   srp = load_rand_proj(args.rand_proj_fl)
+      #  features = srp.transform(features)
 
     print "Saving feature matrix"
     dump(features, args.feature_matrix)
